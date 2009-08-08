@@ -1,0 +1,19 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=2732
+
+If you like to keep your notes in clear text files, Vim is of course the best editor you could use to edit. This plugin simply makes it easier to create, open, move, search etc. these notes using custom commands, all without having to leave the comfort of Vim.
+
+Each note is a separate text file that is saved under a common root configured using g:notesRoot. You can open these note files just like any other file or use the :Note command with command-line completion to make it easier.
+
+Starting to take a new note should be as simple as typing :Note. Enter your text and save to generate a name automatically based on the first line. You can also start typing in an unnamed buffer (created using <Ctrl-W>n) and later convert it as a note using :NoteAsNew command (again named automatically based on the first line).
+
+If you prefer, you can organize the notes into subfolders using your favorite file browser (in or outside Vim) while the :NoteNewFolder, :NoteMove and :NoteRemove commands from the plugin simplify certain operations from within Vim.
+
+Features:
+- Start a new note with less number of keystrokes and less thinking
+- Automatic name generation
+- Ease of opening with command-line completion
+- Searching for patterns
+- Ease of organizing
+
+For full documentation, refer to doc/notes.txt or generate helptags and type :help notes.txt.
+
