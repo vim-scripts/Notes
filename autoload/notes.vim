@@ -12,9 +12,9 @@ function! notes#OpenNote(notePath) " {{{
   " If the note is already loaded into Vim, then using sbuf will avoid
   " reloading the buffer.
   try
-    exec 'sbuf' notePath
+    exec 'sbuf' fnameescape(notePath)
   catch
-    exec 'sp' notePath
+    exec 'sp' fnameescape(notePath)
   endtry
   call notes#InstallAutoCmd()
   if g:notesFileType != ''
@@ -25,7 +25,7 @@ endfunction " }}}
 function! notes#VimGrep(bang, pat) " {{{
   let pat = (a:pat[0] =~ '\i') ? ('/'.a:pat.'/') : a:pat
   try
-    exec 'vimgrep'.a:bang.' '.pat.' '.g:notesRoot.'/**'
+    exec 'vimgrep'.a:bang.' '.pat.' '.s:NotesRoot().'/**'
   catch
     echohl ErrorMsg | echo "\<CR>".substitute(v:exception, '^[^:]\+:', '', '')
           \ | echohl NONE
@@ -102,7 +102,7 @@ function! notes#SaveCurrentAsNew() " {{{
     return
   endif
   let name = notes#GenerateNoteName()
-  let newNotePath = notes#NewName(g:notesRoot, name)
+  let newNotePath = notes#NewName(s:NotesRoot(), name)
   call s:MoveTo(newNotePath)
 endfunction " }}}
 
@@ -142,7 +142,7 @@ function! s:MoveTo(path) " {{{
     throw 'Notes:Move aborted, destination file has non-zero size'
   endif
   try
-    exec 'w!' newNotePath
+    exec 'w!' fnameescape(newNotePath)
   catch
     echohl ErrorMsg | echomsg 'Error writing to file: '.newNotePath |
           \ echomsg v:exception | echohl NONE
@@ -153,7 +153,7 @@ function! s:MoveTo(path) " {{{
   " note and remove the previous buffer
   try
     setl bufhidden=hide
-    exec 'edit' newNotePath
+    exec 'edit' fnameescape(newNotePath)
     call notes#InstallAutoCmd()
   catch
     " We might end up leaving the temporary file, but this situation should
@@ -195,7 +195,7 @@ endfunction " }}}
 " When asDir==1, asNewNote is not used
 function! notes#ResolvePath(path, asDir, asNewNote) " {{{
   if a:path == '' || a:path == '.'
-    let path = g:notesRoot
+    let path = s:NotesRoot()
   else
     if genutils#PathIsAbsolute(a:path)
       if !s:IsValidNotePath(a:path)
@@ -203,7 +203,7 @@ function! notes#ResolvePath(path, asDir, asNewNote) " {{{
       endif
       let path = a:path
     else
-      let path = g:notesRoot.'/'.a:path
+      let path = s:NotesRoot().'/'.a:path
     endif
   endif
   if isdirectory(path)
@@ -252,7 +252,7 @@ function! notes#MonitorCurrentFile() " {{{
     " Excludes plugin and directory buffers.
     return
   endif
-  if genutils#CommonPath(expand('%'), g:notesRoot) == genutils#CleanupFileName(g:notesRoot)
+  if genutils#CommonPath(expand('%'), s:NotesRoot()) == genutils#CleanupFileName(s:NotesRoot())
     call notes#InstallAutoCmd()
     if &ft != 'note' && g:notesFileType != ''
       exec 'set ft='.g:notesFileType
@@ -266,27 +266,26 @@ function! notes#GenerateNoteName() " {{{
   for lineNr in range(1, line('$'))
     let line = getline(lineNr) 
     if line =~ '\w'
-      let goodLine = line
-      break
+      let name = substitute(goodLine, '[^[:alnum:]_ ]', '', 'g')
+      let name = substitute(name, '^\s\+\|\s\+$', '', 'g')
+      if name != ''
+        return name[: g:notesMaxNameLenth-1]
+      endif
     endif
   endfor
-  if goodLine != ''
-    let name = substitute(goodLine, '[^[:alnum:]_ ]', '', 'g')
-    let name = substitute(name, '^\s\+', '', '')
-    return name[: g:notesMaxNameLenth-1]
-  endif
   return ''
 endfunction " }}}
 
 function! notes#NoteComplete(ArgLead, CmdLine, CursorPos) " {{{
-  return genutils#UserFileComplete(a:ArgLead, a:CmdLine, a:CursorPos, 1, g:notesRoot)
+  return genutils#UserFileComplete(a:ArgLead, a:CmdLine, a:CursorPos, 1, s:NotesRoot())
 endfunction " }}}
 
 function! notes#NoteFolderComplete(ArgLead, CmdLine, CursorPos) " {{{
-  " TODO: Need a genutils#UserDirComplete()
+  " TODO: Need a genutils#UserDirComplete(), this one doesn't include the
+  " partially typed string.
   let files = split(genutils#UserFileComplete(a:ArgLead, a:CmdLine, a:CursorPos,
-        \ 1, g:notesRoot), "\n")
-  return join(filter(files, 'isdirectory(g:notesRoot."/".v:val)'), "\n")
+        \ 1, s:NotesRoot()), "\n")
+  return join(filter(files, 'isdirectory(s:NotesRoot()."/".v:val)'), "\n")
 endfunction " }}}
 
 " Creates a new note and returns the path.
@@ -294,20 +293,21 @@ endfunction " }}}
 " directory and prefix (like the Java's utility does)
 function! notes#NewName(dir, prefix) " {{{
   let prefix = (a:prefix == '') ? g:notesDefaultName : a:prefix
-  let pat = '^.*\(\d\+\)\s*'.(g:notesFileExtension == '' ? '' : ((g:notesFileExtension[0] == '.' ? '\' : '') . g:notesFileExtension)).'$'
+  let prefix = substitute(prefix, ' ', g:notesWordSeparator, 'g')
+  let pat = '^.*'.g:notesWordSeparator.'\(\d\+\)'.(g:notesFileExtension == '' ? '' : ((g:notesFileExtension[0] == '.' ? '\' : '') . g:notesFileExtension)).'$'
   let curSuffixes = sort(
         \ map(
         \     map(split(glob(a:dir.'/'.prefix.'*'.g:notesFileExtension), "\<NL>"),
         \         'substitute(v:val, pat, "\\1", "")'),
         \     'v:val + 0'),
         \ 's:NumCompare')
-  let newSuffix = (len(curSuffixes) == 0) ? '' : ' '.(curSuffixes[-1] + 1)
+  let newSuffix = (len(curSuffixes) == 0) ? '' : g:notesWordSeparator.(curSuffixes[-1] + 1)
   let newNamePath = a:dir . '/' . prefix . newSuffix  . g:notesFileExtension
   " Just make sure we will not accidentally overwrite an existing file.
   if glob(newNamePath) != ''
     throw "Notes:Couldn't create a new note, found an existing note with the same name: " . newNamePath
   endif
-  " We use this more like touch command.
+  " This works like a touch command.
   if writefile([], newNamePath) != 0
     throw "Notes:writefile() failed to create new note: " . newNamePath
   endif
@@ -320,7 +320,7 @@ endfunc " }}}
 
 function! s:NoteRootName(noteName) " {{{
   let noteName = fnamemodify(a:noteName, ':t:r')
-  return substitute(noteName, '\s*\d\+\s*$', '', '')
+  return substitute(noteName, g:notesWordSeparator.'\d\+'.g:notesWordSeparator.'$', '', '')
 endfunction " }}}
 
 function! s:FileExists(file)
@@ -333,12 +333,16 @@ function! s:FileExists(file)
 endfunction
 
 function! s:IsValidNotePath(path)
-  if genutils#CommonPath(g:notesRoot, a:path) != genutils#CleanupFileName(g:notesRoot)
+  if genutils#CommonPath(s:NotesRoot(), a:path) != genutils#CleanupFileName(s:NotesRoot())
     echohl ErrorMsg | echo 'Absolute path: ' + a:path +
-          \ ' not under g:notesRoot: '.g:notesRoot | echohl NONE
+          \ ' not under g:notesRoot: '.s:NotesRoot() | echohl NONE
     return 0
   endif
   return 1
+endfunction
+
+function! s:NotesRoot()
+  return expand(g:notesRoot)
 endfunction
 
 " Restore cpo.

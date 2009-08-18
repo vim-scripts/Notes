@@ -1,9 +1,9 @@
 " notes.vim: Note taking plugin
 " Author: Hari Krishna (hari_vim at yahoo dot com)
-" Last Change: 14-Aug-2009 @ 10:43
+" Last Change: 17-Aug-2009 @ 15:16
 " Created:     21-Jul-2009
 " Requires:    Vim-7.2, genutils.vim(2.3)
-" Version:     1.8.4
+" Version:     1.9.1
 " Licence: This program is free software; you can redistribute it and/or
 "          modify it under the terms of the GNU General Public License.
 "          See http://www.gnu.org/copyleft/gpl.txt 
@@ -56,27 +56,35 @@
 "     plugins.
 "
 "   Settings:
-"   - g:notesRoot - Sets the root directory path. Required for the plugin to
-"                   load.
-"   - g:notesDefaultName - The default name used for notes (without any
-"                          extension). Defaults to "New Note" when not
-"                          defined.
-"   - g:notesMaxNameLenth - An integer that limits the length of generated names.
-"                           Defaults to 100 when not defined.
+"   - g:notesRoot -             Sets the root directory path. Required for the
+"                               plugin to load.
+"   - g:notesDefaultName -      The default name used for notes (without any
+"                               extension). Defaults to "New Note" when not
+"                               defined.
+"   - g:notesMaxNameLenth -     An integer that limits the length of generated
+"                               names.  Defaults to 100 when not defined.
 "   - g:notesSyncNameAndTitle - Allows automatically renaming notes on save,
 "                               based on the first non-empty line. When
 "                               disabled, use :NoteSyncFilename to manually
 "                               trigger this. Defaults to 1 when not defined.
-"   - g:notesFileExtension - The extension for the notes files. When no
-"                            extension is specififed to the note, this
-"                            extension will be automatically added. Defaults
-"                            to '.txt' when not defined.
-"   - g:notesFileType - The 'filetype' set when a note is opened. Useful to set
-"                       along with the g:ntotesFileExtension, if you are
-"                       editing notes created with markup (e.g., to edit wiki
-"                       notes, set FileExtension to '.wiki' and the FileType
-"                       to 'wiki'). Defaults to "note", but not filetype
-"                       plugins are provided for this type by the plugin.
+"   - g:notesFileExtension -    The extension for the notes files. When no
+"                               extension is specififed to the note, this
+"                               extension will be automatically added.
+"                               Defaults to '.txt' when not defined.
+"   - g:notesFileType -         The 'filetype' set when a note is opened.
+"                               Useful to set along with the
+"                               g:ntotesFileExtension, if you are editing
+"                               notes created with markup (e.g., to edit wiki
+"                               notes, set FileExtension to '.wiki' and the
+"                               FileType to 'wiki'). Defaults to "note", but
+"                               not filetype plugins are provided for this
+"                               type by the plugin.
+"   - g:notesWordSeparator -    The character to be used as word separator
+"                               while creating filenames for notes. Regex
+"                               special characters (such as ".") shouldn't be
+"                               used. Some of the valid values are "-", "_"
+"                               and "" (empty). Default value is " " (a
+"                               single space).
 " Notes:
 "   When a note is opened, the 'filetype' of the buffer is set to "note". This
 "   means, you can create an ftplugin/note.vim file anywhere in your 'rtp' for
@@ -115,13 +123,13 @@ if !exists('loaded_genutils') || loaded_genutils < 203
   finish
 endif
 
-if !exists('g:notesRoot') || !isdirectory(g:notesRoot)
+if !exists('g:notesRoot') || !isdirectory(expand(g:notesRoot))
   echomsg "Notes: Configured root doesn't exist or is not a directory" .
         \ (exists('g:notesRoot') ? ':'.g:notesRoot : '')
   finish
 endif
 
-let g:loaded_notes = 108
+let g:loaded_notes = 109
 "let g:notesRoot = 'c:/tmp/root' " Please, no trailing-slash for now.
 
 if !exists('g:notesDefaultName')
@@ -138,6 +146,9 @@ if !exists('g:notesFileExtension')
 endif
 if !exists('g:notesFileType')
   let g:notesFileType = 'note'
+endif
+if !exists('g:notesWordSeparator')
+  let g:notesWordSeparator = ' '
 endif
 
 command! -nargs=? -complete=custom,notes#NoteComplete Note :call notes#OpenNote('<args>')
