@@ -1,9 +1,9 @@
 " notes.vim: Note taking plugin
 " Author: Hari Krishna (hari_vim at yahoo dot com)
-" Last Change: 17-Aug-2009 @ 15:16
+" Last Change: 18-Aug-2009 @ 21:56
 " Created:     21-Jul-2009
 " Requires:    Vim-7.2, genutils.vim(2.3)
-" Version:     1.9.1
+" Version:     1.10.1
 " Licence: This program is free software; you can redistribute it and/or
 "          modify it under the terms of the GNU General Public License.
 "          See http://www.gnu.org/copyleft/gpl.txt 
@@ -129,7 +129,7 @@ if !exists('g:notesRoot') || !isdirectory(expand(g:notesRoot))
   finish
 endif
 
-let g:loaded_notes = 109
+let g:loaded_notes = 1010
 "let g:notesRoot = 'c:/tmp/root' " Please, no trailing-slash for now.
 
 if !exists('g:notesDefaultName')

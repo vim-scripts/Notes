@@ -262,11 +262,10 @@ endfunction " }}}
 
 " Generate new (root) name from the current buffer contents.
 function! notes#GenerateNoteName() " {{{
-  let goodLine = ''
   for lineNr in range(1, line('$'))
     let line = getline(lineNr) 
     if line =~ '\w'
-      let name = substitute(goodLine, '[^[:alnum:]_ ]', '', 'g')
+      let name = substitute(line, '[^[:alnum:]_ ]', '', 'g')
       let name = substitute(name, '^\s\+\|\s\+$', '', 'g')
       if name != ''
         return name[: g:notesMaxNameLenth-1]
