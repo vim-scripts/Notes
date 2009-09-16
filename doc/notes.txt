@@ -1,0 +1,427 @@
+*notes.txt* Lightweight note taker plugin
+                    Requires Vim 7.2
+            Last Change: 11-Sep-2009 @ 23:42
+               Revision: 1.0.0
+         Plugin Version: 2.0
+                 Author: Hari Krishna Dara (hari dot vim at gmail dot com)
+
+                                            *notes-introduction*
+                                            *notes-plugin*
+If you like to keep your notes in clear text files, Vim is of course the best
+editor you could use to edit. This plugin simply makes it easier to create,
+open, move, search etc. these notes using custom commands, all without having
+to leave the comfort of Vim. 
+
+Each note is a separate text file that is saved under a common root configured
+using g:notesRoot. You can open these notes files just like any other file or
+use the :Note command with command-line completion to make it easier.
+
+Starting to take new notes should be as simple as typing :Note. Enter your
+text and save to generate a name automatically based on the first line. You
+can also start typing in an unnamed buffer (created using <C-W>n) and later
+convert it as notes using :NoteSaveAs command (with no arguments the command
+names it automatically based on the first line).
+
+If you prefer, you can organize the notes into subfolders using your favorite
+file browser (in or outside Vim) while the :NoteNewFolder, :NoteMove and
+:NoteRemove commands from the plugin simplify certain operations from within
+Vim. 
+
+Features:
+- Start new notes with ease (less typing and less thinking with automatic
+  name generation).
+- Open existing notes with ease (search and completion).
+- Full command-line completion for paths where ever paths are accepted.
+- Full |:vimgrep| support on notes.
+- Commands to help organize notes.
+
+==============================================================================
+OVERVIEW                                    *notes-overview*
+
+|notes-installation|     Installing the plugin.
+
+|notes-usage|            A brief usage to get you quickly started.
+
+|notes-commands|         Full description of commands.
+
+|notes-settings|         An explanation of various configure options.
+
+|notes-tips|             Some tips on using the plugin.
+
+|notes-extend|           Features that make the plugin extensible.
+
+|notes-known-issues|     A list of known issues.
+
+|notes-wishlist|         Wishlist items that may be worth doing for a future
+                         version.
+
+|notes-changes|          A change list for current version from the previous
+                         versions.
+|notes-acknowledgements| Acknowledgements.
+==============================================================================
+
+                                            *notes-installation*
+- The distribution comes as a zipfile that can be extracted straight into your
+  runtime directory (vimfiles or .vim).
+- Set the root directory (henceforth referred to as simply "root") where all
+  your notes will reside, by assigning its path to the |g:notesRoot| variable
+  in your vimrc. Make sure the directory exists.
+- Run :helptags on the doc directory (under vimfiles or .vim).
+- Make sure that you have the latest genutils plugin installed, which can be
+  downloaded from: >
+    http://www.vim.org/script.php?script_id=197
+<
+PS: The version of genutils that this plugin depends on is a newer autoload
+version that is not backwards compatible with the older versions of genutils.
+This means, if you have other plugins that depend on the non-autoload version
+of genutils, you need to follow special instructions given in genutils such
+that you can have both installed at the same time.
+==============================================================================
+
+                                            *notes-usage*
+To start a new note with default name, use the Note command like this: >
+    :Note<CR>
+<
+Type in your thoughts and save using the |:w| command. To reopen the note,
+pass the relative path to the :Note command or use |:NoteBrowse| to open using
+a file explorer.
+
+To create new folder called todo: >
+    :NoteNewFolder todo
+<
+To move the current note to a folder called drafts: >
+    :NoteMove drafts
+<
+General Guidelines:
+- All commands that accept a path support completion (which would be all
+  commands except the |:NoteSyncFilename| and |:NoteRemove| commands).
+- All paths can be relative or absolute paths.
+  - If relative paths are used, the are automatically mapped to the root
+    directory.
+  - If absolute paths are used, they must point to paths under root.
+- When a name is not specified for the notes, a name is automatically
+  generated using the following rules:
+  - For new notes, use |g:notesDefaultName| as the base name.
+  - For existing notes, generate a name based on the first line in the file.
+    (see |g:notesMaxNameLenth|).
+  - When a file already exists with a generated name, append a number starting
+    from 1 to make it unique.
+
+==============================================================================
+
+                                            *notes-commands*
+
+                                            *Note*
+                                            *:Note*
+This command allows you to easily create new note files as well as reopen them
+at a later time. The note files are always open in a split window. The syntax
+of this command is: >
+    :Note [<path>]
+<
+where the argument can be:
+    - missing, to create a new notes file under the root with a default name.
+      The default name is generated using the |g:notesDefaultName| by
+      appending a unique number starting from 1.
+    - a relative or absolute path to a folder under the root. New notes is
+      created in this folder with a default name.
+    - a relative or absolute path to a file under the root.
+      - If the file already exists, the file is split-open. You can use
+        command-line completion to find the file by name.
+        (see |g:notesCompleteAnchortAtStart|)
+      - If the file doesn't exist, a new notefile is created with the
+        specified name. If no extension is specified, an extension is
+        automatically added.
+        (see |g:notesFileExtension|)
+
+Note: The notes file is already created on the filesystem by the time it is
+opened (this is so that the name is reserved on the filesystem such that
+multiple Vim instances can safely and simultaneously create new notes). If you
+change your mind and don't want the notes, then make sure to use the
+|:NoteRemove| command, or it will be left as an empty file.
+
+                                            *note-save*
+When notes is changed, save it simply by using the regular Vim commands, such
+as the |:w|. This will save the notes and also generate a new name based on the
+header line (or the first line in the buffer).
+
+All notes files are regular text files, and they are special to the plugin only
+if they live under the root directory.
+
+                                            *NoteNewFolder*
+                                            *:NoteNewFolder*
+Use ":NoteNewFolder" to create subdirectories under the root with the
+convenience of completion. This works very much like mkdir command and
+specifying "!" is equivalent to "-p" option. These folders are just regular
+filesystem directories, so if you prefer, you can create them using a file
+explorer inside or outside Vim. >
+    :NoteNewFolder[!] <path to non existing dir>
+
+When specifying multiple levels of directories to create, use the "!".
+
+                                            *NoteMove*
+                                            *:NoteMove*
+Use ":NoteMove" to move the current notes to a different folder. It behaves
+pretty much like the mv command except that relative paths are relative to the
+root. >
+    :NoteMove <path to an existing dir>
+<
+Note: This command performs the move, even when the buffer is currently
+modified. The modified buffer is simply saved with the new name while the old
+file is removed. To leave the old notes file in tact, use |:NoteSaveAs|
+instead.
+
+                                            *NoteSaveAs*
+                                            *:NoteSaveAs*
+Use ":NoteSaveAs" to save the current notes with a new name. This behaves like
+the cp command, as the original notes file is left in tact. If a folder is
+specified instead of a file, a new name is generated in that folder based on
+the first line in the file. If no arguments are specified, a name is
+generated under the root. >
+    :NoteSaveAs
+    :NoteSaveAs <path to a non existing file>
+    :NoteSaveAs <path to an existing dir>
+<
+Note: This command performs the copy, even when the buffer is currently
+modified. The modified buffer is simply saved with the new name, while the old
+file is left in tact.
+
+This command can also be used to create new notes using an alternative
+workflow. Instead of using the |:Note| command, start typing your notes in a
+new unnamed buffer (such as the one created by using the |:new| command) and
+when done, save it using :NoteSaveAs instead of |:w|.
+
+Another use of this command is to convert any existing file to notes. E.g., if
+a plugin generates an output that you would like to save (such as the result
+of execution of a SQL query), then simply type :NoteSaveAs to save it as
+notes.
+
+                                            *NoteGrep*
+                                            *:NoteGrep*
+NoteGrep allows you to run |:vimgrep| on one or more notes files or folders with
+ease. You are of course free to run |:vimgrep| yourself, however, the plugin
+makes it easier by providing these values:
+- Automatically search for the current search pattern, if none specified.
+- Automatically encloses the pattern in /'s if not enclosed. If the pattern
+  itself has /'s or you need to pass flags, then you need to enclose the
+  pattern yourself with any flags at the end. See help on :vimgrep for details
+  on enclosing rules.
+- Runs the vimgrep recursively on the root, when no paths are specified. >
+  :NoteGrep[!] [<pat>] [<file>|<dir>] ...
+<
+Ex: >
+  :NoteGrep                                 " Search for current search
+                                            " pattern.
+  :NoteGrep TODO                            " Search for TODO
+  :NoteGrep ;/home/;j                       " Search for /home/
+  :NoteGrep TODO TODO.txt pending/          " Search for TODO in
+                                            " TODO.txt and all files under
+                                            " pending/ folder.
+<
+
+                                            *NoteBrowse*
+                                            *:NoteBrowse*
+NoteBrowse is a simple shortcut for opening the specified or the last used
+notes folder in a file explorer. It simply executes |:split| command on that
+folder, so whatever file explorer you currently have configured will open in
+that folder. >
+    :NoteBrowse [<path to an existing folder>]
+<
+When no path is specified, it reopens the path specified the last time (or
+root)
+
+                                            *NoteSyncFilename*
+                                            *:NoteSyncFilename*
+This is a special purpose command meant specifically for those who would like
+to organize the filenames manually, and thus keep the
+|g:notesSyncNameAndTitle| disabled. This command syncs the filename of the
+current notes to the first line in the buffer. >
+    :NoteSyncFilename
+<
+
+                                            *NoteRemove*
+                                            *:NoteRemove*
+This command is meant as a convenience for removing the current notes file from the
+filesystem. If successful, it also removes the corresponding buffer from Vim.
+This makes it convenient to remove a new note, if you change your mind (see
+the note on |:Note| command for an explanation of why this is useful). You can
+always remove notes files by bringing up a file browser (|:NoteBrowse|). >
+    :NoteRemove[!]
+<
+
+If the notes is currently modified, you would need to specify the bang.
+
+                                            *NoteChangeRoot*
+                                            *:NoteChangeRoot*
+If you maintain multiple sets of notes, you could use this command to
+conveniently switch between them. This command is essentially changing
+|g:notesRoot|, however, it offers completion for the path and you can get away
+with some syntactic sugar.
+==============================================================================
+
+                                            *notes-settings*
+The settings are global variables that you can set in your vimrc. All settings
+are optional (except |g:notesRoot|), as they all have default values.
+
+                                            *notesRoot*
+Sets the path to the root directory where all the notes files will reside.
+Only setting that is required for the plugin to load. >
+    let g:notesRoot = '~/notes'
+<
+                                            *notesDefaultName*
+The default name used for notes (sans any extension). Defaults to "New Note"
+when not defined. Each time |:Note| command is executed with no argument, it
+creates new notes files using this name, and makes it unique by appending a
+sequential number. >
+    let g:notesDefaultName = 'Notes'
+<
+                                            *notesMaxNameLenth*
+An integer that limits the length of generated names. Defaults to 100 when
+not defined. Lower this number if you don't like seeing long filenames or your
+operating system has trouble with long names. >
+    let g:notesMaxNameLenth = 24
+<
+                                            *notesSyncNameAndTitle*
+Allows automatically renaming notes on save, based on the first non-empty
+line. When disabled, use :NoteSyncFilename to manually trigger this. Defaults
+to enabled (1) when not defined. >
+    let g:notesSyncNameAndTitle = 0
+<
+                                            *notesFileExtension*
+The extension for the notes files. When no extension is specified to the
+notes, this extension will be automatically added. Defaults to ".txt" when
+not defined. Useful if you manage your notes primarily using a different
+application that adds a different extension than ".txt" (e.g., ".wiki" for
+WikiNotes). >
+    let g:notesFileExtension = '.wiki'
+<
+                                            *notesFileType*
+The 'filetype' set when notes is opened. Useful to set along with the
+g:ntotesFileExtension, if you are editing notes created with markup (e.g., to
+edit wiki notes, set FileExtension to '.wiki' and the FileType to 'wiki').
+Defaults to "note", but not filetype plugins are provided for this type by the
+plugin. >
+    let g:notesFileType = 'wiki'
+<
+                                            *notesWordSeparator*
+The character to be used as word separator while creating filenames for notes.
+Regex special characters (such as ".") shouldn't be used. Some of the valid
+values are "-", "_" and "" (empty). Default value is " " (a single space).
+Useful if you don't like seeing filenames with spaces (e.g., if you are manage
+the notes files from shell prompt). >
+    let g:notesWordSeparator = '_'
+<
+                                            *notesCompleteAnchortAtStart*
+This setting controls the filename completion behavior on the command-line.
+When set (1), completion is anchored to the beginning of the filename, so only
+filenames that begin with that text are completed. The default value is (0),
+which means, filenames that have the partial text in the middle are also
+completed. >
+    let g:notesCompleteAnchortAtStart = 0
+<
+==============================================================================
+
+                                            *notes-tips*
+- There is a plugin called "Note Maker" (Script #2382:
+  http://www.vim.org/scripts/script.php?script_id=2382), that can complement
+  the notes plugin by providing syntactic highlighting. You would need to
+  confirm to the syntax rules of that plugin.
+- When a note is opened, the 'filetype' of the buffer is set to "note". This
+  means, you can create an ftplugin/note.vim file anywhere in your 'rtp' for
+  buffer specific settings, such as 'indent', 'expandtab'. You can also
+  initialize the buffer with some text. E.g., place the below code in your
+  after/ftplugin/note.vim to automatically create a header for your new note
+  files: >
+    " Means, it is an empty buffer
+    if line('$') == 1 && getline(1) == ''
+      call append(1, substitute(expand('%:t'), '\.\w\+$', '', '').':')
+      normal! G
+    endif
+<
+- If the note contains mostly non-text (e.g., sample code for python), then
+  you may use the 'modelines' to force the 'filetype' to "python".
+==============================================================================
+
+                                            *notes-extend*
+All the functions that the notes plugin provide are global functions in the
+notes namespace and so can be accessed as notes#func. Refer to the
+plugin/notes.vim and notes/autocommand.vim for examples on how to use these
+functions to create any custom commands. The public functions available
+currently are (with prototypes that mimic Java): >
+    void notes#OpenNote(String notePath)
+    void notes#VimGrep(boolean bang, ...)
+    void notes#NewFolder(boolean bangP, String folderPath)
+    void notes#RemoveCurrent(boolean okForModified)
+    void notes#SyncCurrentNoteName()
+    void notes#SaveCurrentAs(String path)
+    void notes#MoveCurrentTo(String path)
+    void notes#NoteBrowse(String path)
+    void notes#ResolvePath(String path, boolean asDir, String notePrefix)
+    void notes#InstallAutoCmd()
+    void notes#UninstallAutoCmd()
+    void notes#GenerateNoteName()
+    void notes#NoteComplete(String ArgLead, String CmdLine, int CursorPos)
+    void notes#FolderCompleteForGrep(String ArgLead, String CmdLine, int CursorPos)
+    void notes#NoteFolderComplete(String ArgLead, String CmdLine, int CursorPos)
+    void notes#NewName(String dir, String prefix)
+<
+==============================================================================
+
+                                            *notes-known-issues*
+- With 'autowrite' if BufWritePost gets triggered when the cursor is in a
+  non-note buffer, there is no easy way to sync filename. Renaming is disabled
+  in this case.
+==============================================================================
+
+                                            *notes-wishlist*
+- Integrate with other plugins.
+  - With lookupfile, if filenametags is found in the root.
+==============================================================================
+
+                                            *notes-changes*
+
+                                            *notes-changes-2.0*
+- Documentation in vim help file format.
+- Dependency on newer genutils (2.5).
+- New setting g:notesCompleteAnchortAtStart
+- Full command-line completion for all commands that accept filename or
+  directory paths (:NoteNewFolder, :NoteBrowse, :NoteGrep, :NoteChangeRoot
+  etc.).
+- New command :NoteSaveAs the replaces the previous :NoteAsNew with a lot more
+  functionality.
+- New command :NoteChangeRoot to make it easier to switch between multiple
+  notes roots.
+- Improved :NoteGrep command that is now fully compatible with the built-in
+  :vimgrep. Allows specifying one or more files or folders and even supports
+  completion once the pattern is entered.
+- Improved :NoteBrowse with folder completion and memory of last specified
+  folder.
+- Better folder completion (using newer version of genutils).
+- Further refactoring of code for more consistent behavior of the plugin.
+- Now the plugin preserves the cursor position during a file rename.
+                                            *notes-changes-1.10*
+- Bugfix for broken filename sync.
+                                            *notes-changes-1.9*
+Fixed issues reported by Gary Johnson.
+- Changed line endings to work on unix like systems.
+- Escape filenames so that spaces will not cause an issue on unix like systems.
+- g:notesWordSeparator to use a different character other than space in the
+  filenames.
+- Some valid paths in g:notesRoot (such as "$HOME/notes" or "~/notes") are not
+  being recognized.
+                                            *notes-changes-1.8*
+- Added g:notesFileExtension. You can now manage files with other extension
+  (e.g., if you keep your notes in wiki style, you can let the extension to
+  ".wiki").
+- Support for setting a 'filetype' for opened notes. By default sets to
+  "note", but can be changed to say "wiki" if your notes are in wiki format.
+- :NoteRemove command to remove current note file.
+- Misc. enhancements and fixes.
+                                            *notes-changes-1.0*
+- First public release.
+
+==============================================================================
+
+                                            *notes-acknowledgements*
+- Gary Johnson for sending initial feedback with bug reports and suggestions.
+
+ vim6:tw=80:ts=8:ft=help:ai:sw=4:et

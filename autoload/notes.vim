@@ -5,7 +5,7 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 function! notes#OpenNote(notePath) " {{{
-  let notePath = notes#ResolvePath(a:notePath, 0, 1)
+  let notePath = notes#ResolvePath(a:notePath, 0, g:notesDefaultName)
   if notePath == ''
     return
   endif
@@ -22,10 +22,16 @@ function! notes#OpenNote(notePath) " {{{
   endif
 endfunction " }}}
 
-function! notes#VimGrep(bang, pat) " {{{
-  let pat = (a:pat[0] =~ '\i') ? ('/'.a:pat.'/') : a:pat
+function! notes#VimGrep(bang, ...) " {{{
+  let pat = a:0 == 0 ? @/ : a:1
+  let pat = (pat[0] =~ '\i') ? ('/'.pat.'/') : pat
+  let files = a:0 > 1 ? a:000[1:] : [s:NotesRoot()]
+  " Resolve, filter invalid paths and take care of dirs.
+  call map(map(filter(map(files, 'notes#ResolvePath(v:val, 0, "")'),
+        \             'v:val != ""'),
+        \ 'isdirectory(v:val) ? v:val."/**" : v:val'), 'escape(v:val, " ")')
   try
-    exec 'vimgrep'.a:bang.' '.pat.' '.s:NotesRoot().'/**'
+    exec 'vimgrep'.a:bang.' '.pat.' '.join(files, ' ')
   catch
     echohl ErrorMsg | echo "\<CR>".substitute(v:exception, '^[^:]\+:', '', '')
           \ | echohl NONE
@@ -36,7 +42,7 @@ function! notes#NewFolder(bangP, folderPath) " {{{
   if !exists("*mkdir")
     echohl ErrorMsg | echo "mkdir() function not availble" | echohl NONE
   endif
-  let folderPath = notes#ResolvePath(a:folderPath, 1, 0)
+  let folderPath = notes#ResolvePath(a:folderPath, 1, '')
   if folderPath == ''
     return
   endif
@@ -80,10 +86,6 @@ function! notes#SyncCurrentNoteName() " {{{
   if !s:IsValidNotePath(expand('%:p'))
     return
   endif
-  if &modified
-    echohl ErrorMsg | echo 'Note currently modified, save it first' | echohl NONE
-    return
-  endif
 
   let name = notes#GenerateNoteName()
   if name != ''
@@ -92,46 +94,45 @@ function! notes#SyncCurrentNoteName() " {{{
       return
     endif
     let newNotePath = notes#NewName(expand('%:h'), name)
-    call s:MoveTo(newNotePath)
+    call s:MoveTo(newNotePath, 0)
   endif
 endfunction " }}}
 
-function! notes#SaveCurrentAsNew() " {{{
-  if expand('%') != '' || !&modified || &buftype != ''
-    echohl ErrorMsg | echo 'This command works only on unnamed buffers' | echohl NONE
-    return
-  endif
-  let name = notes#GenerateNoteName()
-  let newNotePath = notes#NewName(s:NotesRoot(), name)
-  call s:MoveTo(newNotePath)
+function! notes#SaveCurrentAs(path) " {{{
+  " On unnamed buffers, it is nicer to use 0 for leaveSource, as that is what
+  " actually happens anyway (when you write an unnamed buffer, the same buffer
+  " gets a name, instead of a new buffer getting created). And this is what
+  " the user would expect as well.
+  call s:SaveCurrentAs(path, expand('%') == "" ? 0 : 1)
 endfunction " }}}
 
 function! notes#MoveCurrentTo(path) " {{{
-  if &modified
-    echohl ErrorMsg | echo 'Buffer currently modified, save it first' | echohl NONE
-    return
-  endif
-  if expand('%') == '' || &buftype != ''
+  if expand('%') == '' || &buftype != '' || !s:IsValidNotePath(expand('%'))
     echohl ErrorMsg | echo 'This command works only on existing notes' | echohl NONE
     return
   endif
-  let newNotePath = notes#ResolvePath(a:path, 0, 0)
+  call s:SaveCurrentAs(a:path, 0)
+endfunction " }}}
+
+" leaveSource == 1 means copyMode. This makes the note open in a split window.
+" leaveSource == 0 means moveMode. This makes the note open in the same window.
+function! s:SaveCurrentAs(path, leaveSource) " {{{
+  let newNotePath = notes#ResolvePath(a:path, 0, s:NoteRootName(expand('%:t')))
   if newNotePath == ''
     return
-  endif
-  if isdirectory(newNotePath)
-    let curNoteRootName = s:NoteRootName(expand('%:t'))
-    let newNotePath = notes#NewName(newNotePath, curNoteRootName)
   endif
   if s:FileExists(newNotePath)
     echohl ErrorMsg | echo "File exists: ".newNotePath | echohl NONE
     return
   endif
-  call s:MoveTo(newNotePath)
+  " For 'buftype' buffers alone, we always default to a copy, because it is
+  " not wise to delete the buffer and confuse the plugin that generated it.
+  let copyMode = (&buftype != '') ? 1 : a:leaveSource
+  call s:MoveTo(newNotePath, copyMode)
 endfunction " }}}
 
 " CAUTION: No checks, leave as script local method.
-function! s:MoveTo(path) " {{{
+function! s:MoveTo(path, leaveSource) " {{{
   let prevBufnr = bufnr('%')
   let newNotePath = a:path
   if s:FileExists(newNotePath)
@@ -142,6 +143,9 @@ function! s:MoveTo(path) " {{{
     throw 'Notes:Move aborted, destination file has non-zero size'
   endif
   try
+    " Since we already verified that the destination file doesn't exist, it is
+    " ok to use bang. In fact, we HAVE to use bang, because we always create
+    " an empty file in advance.
     exec 'w!' fnameescape(newNotePath)
   catch
     echohl ErrorMsg | echomsg 'Error writing to file: '.newNotePath |
@@ -152,8 +156,14 @@ function! s:MoveTo(path) " {{{
   " Success copying the contents, we can now switch to the new
   " note and remove the previous buffer
   try
-    setl bufhidden=hide
-    exec 'edit' fnameescape(newNotePath)
+    if a:leaveSource
+      exec 'split' fnameescape(newNotePath)
+    else
+      let curpos = getpos('.')
+      setl bufhidden=hide
+      exec 'edit' fnameescape(newNotePath)
+      call setpos('.', curpos)
+    endif
     call notes#InstallAutoCmd()
   catch
     " We might end up leaving the temporary file, but this situation should
@@ -178,7 +188,7 @@ function! s:MoveTo(path) " {{{
     " If the previous path is not an unnamed buffer and is already saved then,
     " delete it. For unnamed buffers, the same bufnr results in getting
     " renamed, so be careful with it.
-    if bufnr('%') != prevBufnr && filereadable(prevNotePath)
+    if !a:leaveSource && bufnr('%') != prevBufnr && filereadable(prevNotePath)
       if delete(prevNotePath) != 0
         throw "Notes:Couldn't delete: ".prevNotePath " To be caught below.
       endif
@@ -192,24 +202,33 @@ function! s:MoveTo(path) " {{{
   return 0
 endfunction " }}}
 
-" When asDir==1, asNewNote is not used
-function! notes#ResolvePath(path, asDir, asNewNote) " {{{
+function! notes#NoteBrowse(path)
+  let path = a:path == '' ? s:prevBrowseDir : notes#ResolvePath(a:path, 1, '')
+  if !s:IsValidNotePath(path)
+    let path = s:NotesRoot()
+  endif
+  let s:prevBrowseDir = path
+  exec 'sp' path
+endfunction
+
+" When asDir==1, notePrefix is not used
+function! notes#ResolvePath(path, asDir, notePrefix) " {{{
   if a:path == '' || a:path == '.'
     let path = s:NotesRoot()
   else
     if genutils#PathIsAbsolute(a:path)
-      if !s:IsValidNotePath(a:path)
+      let path = genutils#CleanupFileName(a:path)
+      if !s:IsValidNotePath(path)
         return ''
       endif
-      let path = a:path
     else
       let path = s:NotesRoot().'/'.a:path
     endif
   endif
   if isdirectory(path)
     let path = substitute(path, '/\+$', '', '')
-    if !a:asDir && a:asNewNote
-      let path = notes#NewName(path, g:notesDefaultName)
+    if !a:asDir && a:notePrefix != ''
+      let path = notes#NewName(path, a:notePrefix)
     endif
   else
     if g:notesFileExtension != ''
@@ -276,15 +295,30 @@ function! notes#GenerateNoteName() " {{{
 endfunction " }}}
 
 function! notes#NoteComplete(ArgLead, CmdLine, CursorPos) " {{{
-  return genutils#UserFileComplete(a:ArgLead, a:CmdLine, a:CursorPos, 1, s:NotesRoot())
-endfunction " }}}
+  return s:NoteComplete(a:ArgLead, a:CmdLine, a:CursorPos, 0)
+endfunction
 
-function! notes#NoteFolderComplete(ArgLead, CmdLine, CursorPos) " {{{
-  " TODO: Need a genutils#UserDirComplete(), this one doesn't include the
-  " partially typed string.
-  let files = split(genutils#UserFileComplete(a:ArgLead, a:CmdLine, a:CursorPos,
-        \ 1, s:NotesRoot()), "\n")
-  return join(filter(files, 'isdirectory(s:NotesRoot()."/".v:val)'), "\n")
+function! notes#FolderCompleteForGrep(ArgLead, CmdLine, CursorPos)
+  " Determine if we are completing a file or still in the pattern.
+  let sepRE = genutils#CrUnProtectedCharsPattern(' ')
+  let str = a:CmdLine[0 : a:CursorPos]
+  let nWords = len(split(str, sepRE))
+  if nWords > 2 || (nWords == 2 && str =~ sepRE.'$')
+    return map(s:NoteComplete(a:ArgLead, a:CmdLine, a:CursorPos, 0), 'genutils#Escape(v:val, " ")')
+  else
+    return []
+  endif
+endfunction
+
+function! notes#NoteFolderComplete(ArgLead, CmdLine, CursorPos)
+  return s:NoteComplete(a:ArgLead, a:CmdLine, a:CursorPos, 1)
+endfunction
+
+function! s:NoteComplete(ArgLead, CmdLine, CursorPos, onlyDirs)
+  return genutils#UserFileComplete2(a:ArgLead, a:CmdLine, a:CursorPos,
+        \ {'searchPath': s:NotesRoot(), 'relativePaths': 1,
+        \  'completionTypes': ['dir'] + (a:onlyDirs ? [] : ['file']),
+        \  'anchorAtStart': g:notesCompleteAnchortAtStart})
 endfunction " }}}
 
 " Creates a new note and returns the path.
@@ -333,16 +367,24 @@ endfunction
 
 function! s:IsValidNotePath(path)
   if genutils#CommonPath(s:NotesRoot(), a:path) != genutils#CleanupFileName(s:NotesRoot())
-    echohl ErrorMsg | echo 'Absolute path: ' + a:path +
+    echohl ErrorMsg | echo 'Absolute path: ' . a:path .
           \ ' not under g:notesRoot: '.s:NotesRoot() | echohl NONE
     return 0
   endif
   return 1
 endfunction
 
+let s:_prevNotesRoot = ''
+let s:_expandedNotesRoot = ''
 function! s:NotesRoot()
-  return expand(g:notesRoot)
+  if s:_prevNotesRoot != g:notesRoot
+    let s:_expandedNotesRoot = genutils#CleanupFileName(g:notesRoot)
+    let s:_prevNotesRoot = g:notesRoot
+  endif
+  return s:_expandedNotesRoot
 endfunction
+
+let s:prevBrowseDir = s:NotesRoot()
 
 " Restore cpo.
 let &cpo = s:save_cpo
