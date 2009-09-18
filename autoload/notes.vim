@@ -103,7 +103,7 @@ function! notes#SaveCurrentAs(path) " {{{
   " actually happens anyway (when you write an unnamed buffer, the same buffer
   " gets a name, instead of a new buffer getting created). And this is what
   " the user would expect as well.
-  call s:SaveCurrentAs(path, expand('%') == "" ? 0 : 1)
+  call s:SaveCurrentAs(a:path, expand('%') == "" ? 0 : 1)
 endfunction " }}}
 
 function! notes#MoveCurrentTo(path) " {{{
@@ -367,7 +367,7 @@ endfunction
 
 function! s:IsValidNotePath(path)
   if genutils#CommonPath(s:NotesRoot(), a:path) != genutils#CleanupFileName(s:NotesRoot())
-    echohl ErrorMsg | echo 'Absolute path: ' . a:path .
+    echohl ErrorMsg | echo 'Not a note? path: ' . a:path .
           \ ' not under g:notesRoot: '.s:NotesRoot() | echohl NONE
     return 0
   endif

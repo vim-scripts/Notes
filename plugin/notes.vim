@@ -1,9 +1,9 @@
 " notes.vim: Lightweight note taker plugin
 " Author: Hari Krishna (hari dot vim at gmail dot com)
-" Last Change: 11-Sep-2009 @ 21:40
+" Last Change: 16-Sep-2009 @ 18:07
 " Created:     21-Jul-2009
-" Requires:    Vim-7.2, genutils.vim(2.3)
-" Version:     2.0.0
+" Requires:    Vim-7.2, genutils.vim(2.5)
+" Version:     2.1.0
 " Licence: This program is free software; you can redistribute it and/or
 "          modify it under the terms of the GNU General Public License.
 "          See http://www.gnu.org/copyleft/gpl.txt 
@@ -38,7 +38,7 @@ if !exists('g:notesRoot') || !isdirectory(expand(g:notesRoot))
   finish
 endif
 
-let g:loaded_notes = 200
+let g:loaded_notes = 201
 "let g:notesRoot = 'c:/tmp/root' " Please, no trailing-slash for now.
 
 if !exists('g:notesDefaultName')
@@ -67,8 +67,8 @@ command! -nargs=? -complete=customlist,notes#NoteComplete Note :call notes#OpenN
 command! NoteSyncFilename :call notes#SyncCurrentNoteName()
 command! -bang -nargs=1 -complete=customlist,notes#NoteFolderComplete NoteNewFolder :call notes#NewFolder(expand('<bang>') == '!' ? 1 : 0, '<args>')
 command! -nargs=1 -complete=customlist,notes#NoteFolderComplete NoteMove :call notes#MoveCurrentTo('<args>')
-command! -complete=customlist,notes#NoteFolderComplete NoteAsNew :call notes#SaveCurrentAsNew('<args>')
-command! -complete=customlist,notes#NoteFolderComplete NoteSaveAs :call notes#SaveCurrentAsNew('<args>')
+command! -complete=customlist,notes#NoteFolderComplete NoteAsNew :call notes#SaveCurrentAs('<args>')
+command! -complete=customlist,notes#NoteFolderComplete NoteSaveAs :call notes#SaveCurrentAs('<args>')
 command! -bang -complete=customlist,notes#FolderCompleteForGrep -nargs=* NoteGrep :call notes#VimGrep(expand('<bang>'), <f-args>)
 command! -nargs=? -complete=customlist,notes#NoteFolderComplete NoteBrowse :call notes#NoteBrowse('<args>')
 command! -bang NoteRemove :call notes#RemoveCurrent(expand('<bang>') == '!')
